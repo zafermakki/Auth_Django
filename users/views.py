@@ -12,7 +12,7 @@ from datetime import timedelta
 import random
 import string
 from django.conf import settings
-
+from django.contrib.auth.hashers import make_password
 
 def send_verification_email(user):
     # إنشاء رمز مكون من 6 محارف (أرقام + أحرف كبيرة وصغيرة)
@@ -70,6 +70,60 @@ class VerifyCodeView(APIView):
         pending_user.delete()
 
         return Response({"message": "تم تفعيل الحساب بنجاح."}, status=status.HTTP_200_OK)
+
+
+class RequestPasswordResetView(APIView):
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        email = request.data.get('email')
+        new_password = request.data.get('new_password')  # كلمة المرور الجديدة
+
+        try:
+            user = User.objects.get(email=email)
+        except User.DoesNotExist:
+            return Response({"message": "هذا البريد الإلكتروني غير مسجل."}, status=status.HTTP_400_BAD_REQUEST)
+
+        # إنشاء رمز تحقق
+        verification_code = ''.join(random.choices(string.digits, k=6))
+        user.verification_code = verification_code
+        user.code_expiration = now() + timedelta(minutes=5)
+        user.temp_password = make_password(new_password)  # تخزين كلمة المرور بشكل مؤقت
+        user.save()
+
+        # إرسال البريد الإلكتروني
+        subject = "إعادة تعيين كلمة المرور"
+        message = f"رمز التحقق الخاص بك هو: {verification_code}\nيرجى إدخاله خلال 5 دقائق."
+        send_mail(subject, message, settings.DEFAULT_FROM_EMAIL, [user.email])
+
+        return Response({"message": "تم إرسال رمز التحقق إلى بريدك الإلكتروني."}, status=status.HTTP_200_OK)
+
+class VerifyAndResetPasswordView(APIView):
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        email = request.data.get('email')
+        code = request.data.get('code')  # رمز التحقق
+
+        try:
+            user = User.objects.get(email=email)
+        except User.DoesNotExist:
+            return Response({"message": "هذا البريد الإلكتروني غير مسجل."}, status=status.HTTP_400_BAD_REQUEST)
+
+        # التحقق من الرمز وصلاحيته
+        if user.verification_code != code or user.code_expiration < now():
+            return Response({"message": "رمز التحقق غير صالح أو منتهي الصلاحية."}, status=status.HTTP_400_BAD_REQUEST)
+
+        # تحديث كلمة المرور
+        if user.temp_password:
+            user.password = user.temp_password
+            user.temp_password = None  # إزالة كلمة المرور المؤقتة
+            user.verification_code = None  # إزالة الرمز
+            user.code_expiration = None
+            user.save()
+            return Response({"message": "تم تحديث كلمة المرور بنجاح."}, status=status.HTTP_200_OK)
+        else:
+            return Response({"message": "لم يتم تقديم كلمة مرور جديدة."}, status=status.HTTP_400_BAD_REQUEST)
 
 # Admin API  
 

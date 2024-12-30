@@ -26,6 +26,9 @@ class User(AbstractUser, PermissionsMixin):
         unique= True
     )
     is_email_verified = models.BooleanField(default=False)
+    verification_code = models.CharField(max_length=6, null=True, blank=True)
+    code_expiration = models.DateTimeField(null=True, blank=True)
+    temp_password = models.CharField(max_length=128, null=True, blank=True)  
     groups = models.ManyToManyField(
         Group, related_name= 'users', related_query_name= 'user' 
     )
