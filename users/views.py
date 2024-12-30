@@ -79,6 +79,12 @@ class RequestPasswordResetView(APIView):
         email = request.data.get('email')
         new_password = request.data.get('new_password')  # كلمة المرور الجديدة
 
+        if len(new_password) < 8:
+            return Response(
+                {"message": "يجب اقل شيء 8 محارف لكلمة المرور"},
+                status= status.HTTP_400_BAD_REQUEST
+            )
+        
         try:
             user = User.objects.get(email=email)
         except User.DoesNotExist:
@@ -133,6 +139,12 @@ class AdminRegisterView(APIView):
     
     def post(self, request):
         data = request.data
+        
+        if len(data['password']) < 8:
+            return Response(
+                {"message": "يجب أن تكون كلمة المرور مكونة من 8 محارف على الأقل"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
         
         if User.objects.filter(email=data['email']).exists():
             return Response({"message": "هذا البريد الإلكتروني مسجل بالفعل. يرجى تسجيل الدخول"},status=status.HTTP_400_BAD_REQUEST)
@@ -191,6 +203,12 @@ class ClientRegisterView(APIView):
 
     def post(self, request):
         data = request.data
+        
+        if len(data['password']) < 8:
+            return Response(
+                {"message": "يجب أن تكون كلمة المرور مكونة من 8 محارف على الأقل"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
 
         if User.objects.filter(email=data['email']).exists():
             return Response({"message": "هذا البريد الإلكتروني مسجل بالفعل. يرجى تسجيل الدخول"}, status=status.HTTP_400_BAD_REQUEST)
